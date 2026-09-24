@@ -8,7 +8,12 @@
  */
 
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
-import { clampThinkingLevel, StringEnum } from "@earendil-works/pi-ai";
+import {
+  type Api,
+  clampThinkingLevel,
+  type Model,
+  StringEnum,
+} from "@earendil-works/pi-ai";
 import {
   type ExtensionAPI,
   type ExtensionContext,
@@ -24,7 +29,7 @@ import {
   TOOL_NAMES,
 } from "./config.ts";
 import { PURE_SLEEP } from "./guard.ts";
-import { resolveModel } from "./model.ts";
+import { resolveModel, userNamedModel } from "./model.ts";
 import { type Completion, Ring, slugName } from "./ring.ts";
 import { EMOJIS, type Row, SpawnWidget, tokens } from "./widget.ts";
 import { runSubagent } from "./worker.ts";
@@ -51,6 +56,8 @@ export default function spawnExtension(pi: ExtensionAPI) {
   let config: SpawnConfig = loadConfig().config;
   let ctxRef: ExtensionContext | undefined;
   let active = false;
+  // Latest user prompt; decides whether a spawn model argument is honored.
+  let lastUserText = "";
 
   // Widget rows: running subagents plus finished ones since the last user
   // prompt.
@@ -142,7 +149,8 @@ export default function spawnExtension(pi: ExtensionAPI) {
   });
 
   // A new user prompt clears finished rows. Running rows stay.
-  pi.on("input", async () => {
+  pi.on("input", async (event) => {
+    lastUserText = event.text;
     for (const [id, row] of rows) if (row.completion) rows.delete(id);
     refreshView();
   });
@@ -177,6 +185,12 @@ export default function spawnExtension(pi: ExtensionAPI) {
       task: Type.String({
         description: "Full, self-contained instructions for the subagent",
       }),
+      model: Type.Optional(
+        Type.String({
+          description:
+            'Only when the user names a model for the subagent; otherwise omit. Ignored unless the user\'s prompt contains it. "provider/id" or "id", optional ":level".',
+        }),
+      ),
       tools: Type.Optional(
         Type.Array(StringEnum(TOOL_NAMES), {
           description: "Subset of allowed tools. Default: spawn.json tools",
@@ -193,19 +207,50 @@ export default function spawnExtension(pi: ExtensionAPI) {
         details: { error: text },
       });
 
-      // The model comes only from spawn.json. Models tend to fill a model
-      // argument with their own name, which would override the user's choice.
-      const modelSpec = config.model;
+      const resolveOptions = {
+        preferProvider: ctx.model?.provider,
+        hasAuth: (m: Model<Api>) => ctx.modelRegistry.hasConfiguredAuth(m),
+      };
       let model = ctx.model;
       let specLevel: ThinkingLevel | undefined;
-      if (modelSpec) {
-        const resolved = resolveModel(modelSpec, ctx.modelRegistry.getAll(), {
-          preferProvider: ctx.model?.provider,
-          hasAuth: (m) => ctx.modelRegistry.hasConfiguredAuth(m),
-        });
-        if (!resolved.ok) return fail(resolved.error);
-        model = resolved.model;
-        specLevel = resolved.level;
+      let note = "";
+
+      // The model argument counts only when the user's prompt names that
+      // model. Models tend to pass their own name, which would override
+      // spawn.json.
+      const requested = params.model?.trim();
+      let useRequested = false;
+      if (requested) {
+        const r = resolveModel(
+          requested,
+          ctx.modelRegistry.getAll(),
+          resolveOptions,
+        );
+        if (r.ok && userNamedModel(lastUserText, requested, r.model)) {
+          model = r.model;
+          specLevel = r.level;
+          useRequested = true;
+        } else if (
+          !r.ok &&
+          userNamedModel(lastUserText, requested, {
+            provider: "",
+            id: "",
+          })
+        ) {
+          return fail(r.error);
+        } else {
+          note = ` Model "${requested}" ignored: the user did not name it; using the configured default.`;
+        }
+      }
+      if (!useRequested && config.model) {
+        const r = resolveModel(
+          config.model,
+          ctx.modelRegistry.getAll(),
+          resolveOptions,
+        );
+        if (!r.ok) return fail(r.error);
+        model = r.model;
+        specLevel = r.level;
       }
       if (!model) return fail("spawn: no model selected");
 
@@ -266,7 +311,7 @@ export default function spawnExtension(pi: ExtensionAPI) {
         content: [
           {
             type: "text",
-            text: `spawned ${result.id} (${modelLabel}). Do not wait or sleep: continue other work or end your turn. The summary arrives as a new message.`,
+            text: `spawned ${result.id} (${modelLabel}).${note} Do not wait or sleep: continue other work or end your turn. The summary arrives as a new message.`,
           },
         ],
         details: {

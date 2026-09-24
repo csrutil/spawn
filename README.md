@@ -28,7 +28,7 @@ pi -e ./spawn/src/index.ts
 
 | Name | Purpose |
 |---|---|
-| `spawn` | `{name, task, tools?, cwd?}`. Returns immediately. `name` is kebab-case and becomes the id (`-2` suffix on repeats). |
+| `spawn` | `{name, task, model?, tools?, cwd?}`. Returns immediately. `model` is honored only when the user's prompt names that model; otherwise `spawn.json` applies. `name` is kebab-case and becomes the id (`-2` suffix on repeats). |
 | `spawn_status` | Running subagents and recent completions. |
 | `spawn_cancel` | `{id}` or `{id: "all"}`. |
 | `/spawn`, `/spawn cancel <id\|all>` | Same, for the user. |
@@ -52,7 +52,7 @@ All fields are optional.
 }
 ```
 
-- `model`: the only way to choose the subagent model (the tool has no model argument). `"provider/id"` or a bare `"id"`, optionally with `":level"` (e.g. `"gpt-5.6-luna:high"`). A bare id found under several providers prefers the main session's provider, then providers with auth. `null` uses the main session's current model.
+- `model`: default subagent model. `"provider/id"` or a bare `"id"`, optionally with `":level"` (e.g. `"gpt-5.6-luna:high"`). A bare id found under several providers prefers the main session's provider, then providers with auth. `null` uses the main session's current model.
 - `thinkingLevel`: `null` uses the main session's level. Clamped to the model.
 - `tools`: upper bound. A `spawn` call can request a subset.
 - `timeoutMs`: `0` disables the timeout.

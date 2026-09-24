@@ -68,3 +68,21 @@ export function resolveModel<M extends ModelLike>(
       (near.length > 0 ? ` Close matches: ${near.join(", ")}` : ""),
   };
 }
+
+/**
+ * True when the user's prompt names the requested model: it contains the
+ * spec as passed (without ":level"), the resolved id, or the display name.
+ * Models tend to pass their own name unprompted; this keeps the configured
+ * default unless the user actually asked for a model.
+ */
+export function userNamedModel(
+  userText: string,
+  spec: string,
+  model: ModelLike & { name?: string },
+): boolean {
+  const text = userText.toLowerCase();
+  const bare = spec.trim().replace(/:[a-z]+$/i, "");
+  return [bare, model.id, model.name ?? ""]
+    .map((s) => s.trim().toLowerCase())
+    .some((s) => s.length > 0 && text.includes(s));
+}

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { type ModelLike, resolveModel } from "../src/model.ts";
+import { type ModelLike, resolveModel, userNamedModel } from "../src/model.ts";
 
 const models: ModelLike[] = [
   { provider: "openai", id: "gpt-5.6-luna" },
@@ -47,4 +47,17 @@ test("unknown model lists close matches", () => {
   const err = pick("gpt-5.6");
   assert.match(err, /unknown model "gpt-5.6"/);
   assert.match(err, /openai\/gpt-5.6-luna/);
+});
+
+test("userNamedModel only accepts models named in the prompt", () => {
+  const luna = { provider: "droid", id: "gpt-5.6-luna", name: "GPT-5.6 Luna" };
+  const ask = "gpt-5.6-luna subagent to query USD to CAD";
+  assert.ok(userNamedModel(ask, "gpt-5.6-luna", luna));
+  assert.ok(userNamedModel(ask, "droid/gpt-5.6-luna:high", luna));
+  assert.ok(userNamedModel("use GPT-5.6 Luna for it", "x", luna));
+  assert.ok(
+    !userNamedModel("subagents to get USD to CNY", "gpt-5.6-luna", luna),
+  );
+  assert.ok(!userNamedModel("luna subagent", "gpt-5.6-luna", luna));
+  assert.ok(!userNamedModel("anything", "  ", { provider: "p", id: "" }));
 });
