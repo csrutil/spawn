@@ -177,12 +177,6 @@ export default function spawnExtension(pi: ExtensionAPI) {
       task: Type.String({
         description: "Full, self-contained instructions for the subagent",
       }),
-      model: Type.Optional(
-        Type.String({
-          description:
-            'Model as "provider/id" or bare "id", optionally with ":level" (e.g. "gpt-5.6-luna:high"). Default: spawn.json model, else current model',
-        }),
-      ),
       tools: Type.Optional(
         Type.Array(StringEnum(TOOL_NAMES), {
           description: "Subset of allowed tools. Default: spawn.json tools",
@@ -199,7 +193,9 @@ export default function spawnExtension(pi: ExtensionAPI) {
         details: { error: text },
       });
 
-      const modelSpec = params.model ?? config.model;
+      // The model comes only from spawn.json. Models tend to fill a model
+      // argument with their own name, which would override the user's choice.
+      const modelSpec = config.model;
       let model = ctx.model;
       let specLevel: ThinkingLevel | undefined;
       if (modelSpec) {
