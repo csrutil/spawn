@@ -29,7 +29,7 @@ const THINKING_LEVELS: ThinkingLevel[] = [
 export interface SpawnConfig {
   /** Max subagents in flight. Capped at 64. */
   maxInFlight: number;
-  /** "provider/modelId". null uses the main session's current model. */
+  /** "provider/id" or "id", optional ":level". null uses the main model. */
   model: string | null;
   /** null uses the main session's current thinking level. */
   thinkingLevel: ThinkingLevel | null;
@@ -90,7 +90,7 @@ export function loadConfig(path = configPath()): {
   if (r.model !== undefined) {
     if (
       r.model === null ||
-      (typeof r.model === "string" && r.model.includes("/"))
+      (typeof r.model === "string" && r.model.trim() !== "")
     )
       config.model = r.model;
     else bad("model");

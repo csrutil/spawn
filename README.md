@@ -52,7 +52,7 @@ All fields are optional.
 }
 ```
 
-- `model`: `"provider/modelId"`. `null` uses the main session's current model.
+- `model`: `"provider/id"` or a bare `"id"`, optionally with `":level"` (e.g. `"gpt-5.6-luna:high"`). A bare id found under several providers prefers the main session's provider, then providers with auth. `null` uses the main session's current model.
 - `thinkingLevel`: `null` uses the main session's level. Clamped to the model.
 - `tools`: upper bound. A `spawn` call can request a subset.
 - `timeoutMs`: `0` disables the timeout.

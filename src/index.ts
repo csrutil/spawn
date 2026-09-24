@@ -7,6 +7,7 @@
  * "spawn-cqe" custom message, which starts or queues a turn.
  */
 
+import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import { clampThinkingLevel, StringEnum } from "@earendil-works/pi-ai";
 import {
   type ExtensionAPI,
@@ -23,6 +24,7 @@ import {
   TOOL_NAMES,
 } from "./config.ts";
 import { PURE_SLEEP } from "./guard.ts";
+import { resolveModel } from "./model.ts";
 import { type Completion, Ring, slugName } from "./ring.ts";
 import { EMOJIS, type Row, SpawnWidget, tokens } from "./widget.ts";
 import { runSubagent } from "./worker.ts";
@@ -178,7 +180,7 @@ export default function spawnExtension(pi: ExtensionAPI) {
       model: Type.Optional(
         Type.String({
           description:
-            'Model as "provider/modelId". Default: spawn.json model, else current model',
+            'Model as "provider/id" or bare "id", optionally with ":level" (e.g. "gpt-5.6-luna:high"). Default: spawn.json model, else current model',
         }),
       ),
       tools: Type.Optional(
@@ -199,16 +201,15 @@ export default function spawnExtension(pi: ExtensionAPI) {
 
       const modelSpec = params.model ?? config.model;
       let model = ctx.model;
+      let specLevel: ThinkingLevel | undefined;
       if (modelSpec) {
-        const slash = modelSpec.indexOf("/");
-        model =
-          slash > 0
-            ? ctx.modelRegistry.find(
-                modelSpec.slice(0, slash),
-                modelSpec.slice(slash + 1),
-              )
-            : undefined;
-        if (!model) return fail(`spawn: unknown model "${modelSpec}"`);
+        const resolved = resolveModel(modelSpec, ctx.modelRegistry.getAll(), {
+          preferProvider: ctx.model?.provider,
+          hasAuth: (m) => ctx.modelRegistry.hasConfiguredAuth(m),
+        });
+        if (!resolved.ok) return fail(resolved.error);
+        model = resolved.model;
+        specLevel = resolved.level;
       }
       if (!model) return fail("spawn: no model selected");
 
@@ -219,7 +220,7 @@ export default function spawnExtension(pi: ExtensionAPI) {
       const cwd = params.cwd ?? ctx.cwd;
       const thinkingLevel = clampThinkingLevel(
         model,
-        config.thinkingLevel ?? pi.getThinkingLevel(),
+        specLevel ?? config.thinkingLevel ?? pi.getThinkingLevel(),
       );
       const modelLabel = `${model.id}:${thinkingLevel}`;
       const { modelRegistry } = ctx;
