@@ -54,7 +54,7 @@ All fields are optional.
 
 - `model`: default subagent model. `"provider/id"` or a bare `"id"`, optionally with `":level"` (e.g. `"gpt-5.6-luna:high"`). A bare id found under several providers prefers the main session's provider, then providers with auth. `null` uses the main session's current model.
 - `thinkingLevel`: `null` uses the main session's level. Clamped to the model.
-- `tools`: upper bound. A `spawn` call can request a subset.
+- `tools`: upper bound. A `spawn` call can request a subset. `null` or omitted means all built-in tools (read, bash, edit, write, grep, find, ls).
 - `timeoutMs`: `0` disables the timeout.
 
 Config is read at session start. Use `/reload` after editing.

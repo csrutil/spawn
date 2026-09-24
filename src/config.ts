@@ -33,6 +33,7 @@ export interface SpawnConfig {
   model: string | null;
   /** null uses the main session's current thinking level. */
   thinkingLevel: ThinkingLevel | null;
+  /** Upper bound for subagent tools. null in spawn.json means all. */
   tools: SubagentToolName[];
   deliverAs: "followUp" | "steer";
   /** Summary text sent to main is cut at this length. */
@@ -103,7 +104,8 @@ export function loadConfig(path = configPath()): {
       config.thinkingLevel = r.thinkingLevel as ThinkingLevel | null;
     else bad("thinkingLevel");
   }
-  if (r.tools !== undefined) {
+  // null means all tools (the default).
+  if (r.tools !== undefined && r.tools !== null) {
     if (
       Array.isArray(r.tools) &&
       r.tools.every((t) => TOOL_NAMES.includes(t as SubagentToolName))
