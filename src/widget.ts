@@ -44,10 +44,37 @@ export function tokens(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
 }
 
+function rgb(ansi: string): [number, number, number] | undefined {
+  const m = /38;2;(\d+);(\d+);(\d+)/.exec(ansi);
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : undefined;
+}
+
+/**
+ * Shimmer: a bright band sweeps left to right over muted text, one step per
+ * 100 ms. Blends RGB in truecolor themes; steps through theme colors otherwise.
+ */
+function shimmer(text: string, theme: Theme, now: number): string {
+  const chars = [...text];
+  const band = 3;
+  const center = (Math.floor(now / 100) % (chars.length + band * 4)) - band * 2;
+  const base = rgb(theme.getFgAnsi("muted"));
+  const peak = rgb(theme.getFgAnsi("text"));
+  return chars
+    .map((ch, i) => {
+      const d = Math.abs(i - center);
+      if (d > band) return theme.fg("muted", ch);
+      if (!base || !peak) return theme.fg(d === 0 ? "text" : "accent", ch);
+      const t = (1 + Math.cos((Math.PI * d) / band)) / 2;
+      const [r, g, b] = base.map((v, k) => Math.round(v + (peak[k] - v) * t));
+      return `\x1b[38;2;${r};${g};${b}m${ch}\x1b[39m`;
+    })
+    .join("");
+}
+
 function renderRow(row: Row, theme: Theme, now: number): string {
   const c = row.completion;
-  const name = `${row.emoji} ${theme.bold(row.id)}`;
   if (!c) {
+    const name = `${row.emoji} ${shimmer(row.id, theme, now)}`;
     const frame = SPINNER[Math.floor(now / 100) % SPINNER.length];
     const meta = [
       seconds(now - row.startedAt),
@@ -63,6 +90,7 @@ function renderRow(row: Row, theme: Theme, now: number): string {
       : c.status === "error"
         ? theme.fg("error", "✗")
         : theme.fg("warning", "■");
+  const name = `${row.emoji} ${theme.fg("muted", row.id)}`;
   const meta = [
     c.status === "ok" ? undefined : c.status,
     seconds(c.endedAt - c.startedAt),
