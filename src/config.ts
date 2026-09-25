@@ -29,7 +29,7 @@ const THINKING_LEVELS: ThinkingLevel[] = [
 export interface SpawnConfig {
   /** Max subagents in flight. Capped at 64. */
   maxInFlight: number;
-  /** "provider/id" or "id", optional ":level". null uses the main model. */
+  /** "provider/id" or "id", optional ":level". null uses the main model. SPAWN_MODEL overrides. */
   model: string | null;
   /** null uses the main session's current thinking level. */
   thinkingLevel: ThinkingLevel | null;
@@ -56,8 +56,24 @@ export function configPath(): string {
   return join(getAgentDir(), "spawn.json");
 }
 
-/** Loads spawn.json. Returns defaults plus warnings for invalid fields. */
-export function loadConfig(path = configPath()): {
+/**
+ * Loads spawn.json. Returns defaults plus warnings for invalid fields.
+ * A non-empty SPAWN_MODEL env var overrides `model`.
+ */
+export function loadConfig(
+  path = configPath(),
+  env: NodeJS.ProcessEnv = process.env,
+): {
+  config: SpawnConfig;
+  warnings: string[];
+} {
+  const result = loadFile(path);
+  const envModel = env.SPAWN_MODEL?.trim();
+  if (envModel) result.config.model = envModel;
+  return result;
+}
+
+function loadFile(path: string): {
   config: SpawnConfig;
   warnings: string[];
 } {

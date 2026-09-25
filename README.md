@@ -52,7 +52,7 @@ All fields are optional.
 }
 ```
 
-- `model`: default subagent model. `"provider/id"` or a bare `"id"`, optionally with `":level"` (e.g. `"gpt-5.6-luna:high"`). A bare id found under several providers prefers the main session's provider, then providers with auth. `null` uses the main session's current model.
+- `model`: default subagent model. `"provider/id"` or a bare `"id"`, optionally with `":level"` (e.g. `"gpt-5.6-luna:high"`). A bare id found under several providers prefers the main session's provider, then providers with auth. `null` uses the main session's current model. The `SPAWN_MODEL` env var overrides it, in the same format (e.g. `SPAWN_MODEL=gpt-5.6-luna:high pi`).
 - `thinkingLevel`: `null` uses the main session's level. Clamped to the model.
 - `tools`: upper bound. A `spawn` call can request a subset. `null` or omitted means all built-in tools (read, bash, edit, write, grep, find, ls).
 - `summaryTokens`: the summary sent to the main session is cut at about this many tokens (estimated as 4 chars per token).

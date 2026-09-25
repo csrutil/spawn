@@ -46,3 +46,18 @@ test("timeout is seconds; summaryTokens is validated", () => {
   assert.equal(bad.config.summaryTokens, 1000);
   assert.equal(bad.warnings.length, 2);
 });
+
+test("SPAWN_MODEL overrides model, with or without spawn.json", () => {
+  const path = join(mkdtempSync(join(tmpdir(), "spawn-")), "spawn.json");
+  writeFileSync(path, JSON.stringify({ model: "a/b" }));
+  assert.equal(
+    loadConfig(path, { SPAWN_MODEL: "c/d:high" }).config.model,
+    "c/d:high",
+  );
+  assert.equal(loadConfig(path, { SPAWN_MODEL: "  " }).config.model, "a/b");
+  assert.equal(loadConfig(path, {}).config.model, "a/b");
+  assert.equal(
+    loadConfig("/nonexistent/spawn.json", { SPAWN_MODEL: "x" }).config.model,
+    "x",
+  );
+});
