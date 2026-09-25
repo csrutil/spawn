@@ -1,5 +1,9 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { type Component, truncateToWidth } from "@earendil-works/pi-tui";
+import {
+  type Component,
+  truncateToWidth,
+  visibleWidth,
+} from "@earendil-works/pi-tui";
 import type { Completion } from "./ring.ts";
 
 /** Per-subagent markers, assigned in spawn order. */
@@ -71,7 +75,15 @@ function shimmer(text: string, theme: Theme, now: number): string {
     .join("");
 }
 
-function renderRow(row: Row, theme: Theme, now: number): string {
+function renderRow(
+  row: Row,
+  theme: Theme,
+  now: number,
+  nameWidth: number,
+): string {
+  const padding = " ".repeat(
+    nameWidth - visibleWidth(`${row.emoji} ${row.id}`) + 1,
+  );
   const c = row.completion;
   if (!c) {
     const name = `${row.emoji} ${shimmer(row.id, theme, now)}`;
@@ -82,7 +94,7 @@ function renderRow(row: Row, theme: Theme, now: number): string {
       row.model,
       row.activity,
     ].join(" · ");
-    return `${theme.fg("accent", frame)} ${name} ${theme.fg("dim", meta)}`;
+    return `${theme.fg("accent", frame)} ${name}${padding}${theme.fg("dim", meta)}`;
   }
   const icon =
     c.status === "ok"
@@ -100,7 +112,7 @@ function renderRow(row: Row, theme: Theme, now: number): string {
   ]
     .filter(Boolean)
     .join(" · ");
-  return `${icon} ${name} ${theme.fg("dim", meta)}`;
+  return `${icon} ${name}${padding}${theme.fg("dim", meta)}`;
 }
 
 /** Live list of subagents shown above the editor. */
@@ -116,9 +128,14 @@ export class SpawnWidget implements Component {
   render(width: number): string[] {
     const rows = this.rows();
     const now = Date.now();
-    const lines = rows
-      .slice(-MAX_ROWS)
-      .map((r) => truncateToWidth(renderRow(r, this.theme, now), width));
+    const shown = rows.slice(-MAX_ROWS);
+    const nameWidth = Math.max(
+      0,
+      ...shown.map((r) => visibleWidth(`${r.emoji} ${r.id}`)),
+    );
+    const lines = shown.map((r) =>
+      truncateToWidth(renderRow(r, this.theme, now, nameWidth), width),
+    );
     if (rows.length > MAX_ROWS)
       lines.unshift(
         this.theme.fg("dim", `… ${rows.length - MAX_ROWS} more (/spawn)`),
