@@ -9,11 +9,11 @@ import {
 
 const usage = { input: 1, output: 2, cost: 0 };
 
-function makeRing(limit: number, timeoutMs = 0) {
+function makeRing(limit: number, timeout = 0) {
   const done: Completion[] = [];
   const ring = new Ring({
     limit,
-    timeoutMs,
+    timeout,
     historySize: 3,
     onComplete: (c) => done.push(c),
   });
@@ -83,7 +83,7 @@ test("cancel one and all", async () => {
 });
 
 test("timeout aborts the task", async () => {
-  const { ring, done } = makeRing(1, 10);
+  const { ring, done } = makeRing(1, 0.01);
   ring.submit({ name: "slow", task: "slow" }, controllable().run);
   await new Promise((r) => setTimeout(r, 30));
   assert.equal(done[0].status, "timeout");

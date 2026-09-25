@@ -35,3 +35,14 @@ test("missing file gives defaults", () => {
   assert.equal(config.maxInFlight, 64);
   assert.deepEqual(warnings, []);
 });
+
+test("timeout is seconds; summaryTokens is validated", () => {
+  const { config, warnings } = load({ timeout: 30, summaryTokens: 500 });
+  assert.equal(config.timeout, 30);
+  assert.equal(config.summaryTokens, 500);
+  assert.deepEqual(warnings, []);
+  const bad = load({ timeout: -1, summaryTokens: 0 });
+  assert.equal(bad.config.timeout, 600);
+  assert.equal(bad.config.summaryTokens, 1000);
+  assert.equal(bad.warnings.length, 2);
+});

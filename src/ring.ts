@@ -55,7 +55,8 @@ const EMPTY_USAGE: Usage = { input: 0, output: 0, cost: 0 };
 
 export interface RingOptions {
   limit: number;
-  timeoutMs: number;
+  /** Seconds. 0 disables the timeout. */
+  timeout: number;
   historySize: number;
   onComplete: (completion: Completion) => void;
 }
@@ -148,11 +149,11 @@ export class Ring {
 
   private async execute(item: InFlight, run: Runner): Promise<void> {
     const timer =
-      this.options.timeoutMs > 0
+      this.options.timeout > 0
         ? setTimeout(() => {
             item.timedOut = true;
             item.controller.abort();
-          }, this.options.timeoutMs)
+          }, this.options.timeout * 1000)
         : undefined;
 
     let result: RunResult = { summary: "", turns: 0, usage: EMPTY_USAGE };

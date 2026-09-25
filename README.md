@@ -47,15 +47,16 @@ All fields are optional.
   "thinkingLevel": null,
   "tools": ["read", "bash", "edit", "write", "grep", "find", "ls"],
   "deliverAs": "followUp",
-  "maxSummaryChars": 4000,
-  "timeoutMs": 600000
+  "summaryTokens": 1000,
+  "timeout": 600
 }
 ```
 
 - `model`: default subagent model. `"provider/id"` or a bare `"id"`, optionally with `":level"` (e.g. `"gpt-5.6-luna:high"`). A bare id found under several providers prefers the main session's provider, then providers with auth. `null` uses the main session's current model.
 - `thinkingLevel`: `null` uses the main session's level. Clamped to the model.
 - `tools`: upper bound. A `spawn` call can request a subset. `null` or omitted means all built-in tools (read, bash, edit, write, grep, find, ls).
-- `timeoutMs`: `0` disables the timeout.
+- `summaryTokens`: the summary sent to the main session is cut at about this many tokens (estimated as 4 chars per token).
+- `timeout`: seconds per subagent. `0` disables the timeout.
 
 Config is read at session start. Use `/reload` after editing.
 

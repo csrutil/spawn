@@ -108,7 +108,7 @@ export default function spawnExtension(pi: ExtensionAPI) {
 
   let ring = new Ring({
     limit: config.maxInFlight,
-    timeoutMs: config.timeoutMs,
+    timeout: config.timeout,
     historySize: 64,
     onComplete: deliver,
   });
@@ -122,7 +122,7 @@ export default function spawnExtension(pi: ExtensionAPI) {
     ring.cancel("all");
     ring = new Ring({
       limit: config.maxInFlight,
-      timeoutMs: config.timeoutMs,
+      timeout: config.timeout,
       historySize: 64,
       onComplete: deliver,
     });
@@ -290,7 +290,7 @@ export default function spawnExtension(pi: ExtensionAPI) {
               thinkingLevel,
               tools,
               modelRegistry,
-              maxSummaryChars: config.maxSummaryChars,
+              summaryTokens: config.summaryTokens,
               onProgress: (p) => {
                 row.turns = p.turns;
                 row.activity = p.activity;

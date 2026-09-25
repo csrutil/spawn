@@ -36,10 +36,10 @@ export interface SpawnConfig {
   /** Upper bound for subagent tools. null in spawn.json means all. */
   tools: SubagentToolName[];
   deliverAs: "followUp" | "steer";
-  /** Summary text sent to main is cut at this length. */
-  maxSummaryChars: number;
-  /** 0 disables the timeout. */
-  timeoutMs: number;
+  /** Summary sent to main is cut at about this many tokens (4 chars per token). */
+  summaryTokens: number;
+  /** Seconds. 0 disables the timeout. */
+  timeout: number;
 }
 
 export const DEFAULT_CONFIG: SpawnConfig = {
@@ -48,8 +48,8 @@ export const DEFAULT_CONFIG: SpawnConfig = {
   thinkingLevel: null,
   tools: [...TOOL_NAMES],
   deliverAs: "followUp",
-  maxSummaryChars: 4000,
-  timeoutMs: 600_000,
+  summaryTokens: 1000,
+  timeout: 600,
 };
 
 export function configPath(): string {
@@ -118,15 +118,15 @@ export function loadConfig(path = configPath()): {
       config.deliverAs = r.deliverAs;
     else bad("deliverAs");
   }
-  if (r.maxSummaryChars !== undefined) {
-    if (typeof r.maxSummaryChars === "number" && r.maxSummaryChars > 0)
-      config.maxSummaryChars = Math.floor(r.maxSummaryChars);
-    else bad("maxSummaryChars");
+  if (r.summaryTokens !== undefined) {
+    if (typeof r.summaryTokens === "number" && r.summaryTokens >= 1)
+      config.summaryTokens = Math.floor(r.summaryTokens);
+    else bad("summaryTokens");
   }
-  if (r.timeoutMs !== undefined) {
-    if (typeof r.timeoutMs === "number" && r.timeoutMs >= 0)
-      config.timeoutMs = Math.floor(r.timeoutMs);
-    else bad("timeoutMs");
+  if (r.timeout !== undefined) {
+    if (typeof r.timeout === "number" && r.timeout >= 0)
+      config.timeout = r.timeout;
+    else bad("timeout");
   }
   return { config, warnings };
 }

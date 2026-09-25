@@ -30,7 +30,8 @@ export interface WorkerOptions {
   thinkingLevel: ThinkingLevel;
   tools: SubagentToolName[];
   modelRegistry: ModelRegistry;
-  maxSummaryChars: number;
+  /** Approximate token cap for the summary. */
+  summaryTokens: number;
   /** Called on turn and tool changes. */
   onProgress?: (progress: Progress) => void;
 }
@@ -64,9 +65,14 @@ function systemPrompt(cwd: string, tools: SubagentToolName[]): string {
   ].join("\n");
 }
 
-function truncate(text: string, max: number): string {
+/** Rough estimate, same heuristic as pi compaction. */
+const CHARS_PER_TOKEN = 4;
+
+function truncate(text: string, tokens: number): string {
+  const max = tokens * CHARS_PER_TOKEN;
   if (text.length <= max) return text;
-  return `${text.slice(0, max)}\n[summary truncated: ${text.length - max} chars omitted]`;
+  const omitted = Math.ceil((text.length - max) / CHARS_PER_TOKEN);
+  return `${text.slice(0, max)}\n[summary truncated: ~${omitted} tokens omitted]`;
 }
 
 export async function runSubagent(
@@ -129,7 +135,7 @@ export async function runSubagent(
 
   const failed = last?.stopReason === "error" || last?.stopReason === "aborted";
   return {
-    summary: truncate(text, options.maxSummaryChars),
+    summary: truncate(text, options.summaryTokens),
     turns: assistants.length,
     usage,
     error: failed
