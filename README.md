@@ -39,9 +39,9 @@ A widget above the editor shows subagents as a tree:
 
 ```
 ● Spawn Agents 2 running · 1 queued · 1 failed
-├─ ✗ 🦊 usd-cny-rate · error · ↻2 · 1 tool use · ↑2.6k ↓147 · $0.0012 · 3s · glm-5.3-flash:high
+├─ ✗ 🦊 usd-cny-rate · error · 2 turns · 1 tool use · ↑2.6k ↓147 · $0.0012 · 3s · glm-5.3-flash:high
 │   ⎿  429 rate limited
-├─ ⠹ 🐙 usd-jpy-rate · ↻5 · 5 tool uses · 33.8k token (17%) · 12s · glm-5.3-flash:high
+├─ ⠹ 🐙 usd-jpy-rate · 5 turns · 5 tool uses · 33.8k token (17%) · 12s · glm-5.3-flash:high
 │   ⎿  bash curl -s https://open.er-api.com/v6/latest/USD
 └─ 1 queued
 ```

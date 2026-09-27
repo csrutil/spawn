@@ -88,6 +88,10 @@ function shimmer(text: string, theme: Theme, now: number): string {
     .join("");
 }
 
+function turns(n: number): string {
+  return `${n} ${n === 1 ? "turn" : "turns"}`;
+}
+
 function toolUses(n: number): string {
   return `${n} tool ${n === 1 ? "use" : "uses"}`;
 }
@@ -117,7 +121,7 @@ function renderRow(
   if (!c) {
     const frame = SPINNER[Math.floor(now / FRAME_MS) % SPINNER.length];
     const meta = [
-      `↻${row.turns}`,
+      turns(row.turns),
       toolUses(row.toolUses),
       context(row),
       seconds(now - row.startedAt),
@@ -136,7 +140,7 @@ function renderRow(
         : theme.fg("warning", "■");
   const meta = [
     c.status === "ok" ? undefined : c.status,
-    `↻${c.turns}`,
+    turns(c.turns),
     toolUses(row.toolUses),
     `↑${tokens(c.usage.input)} ↓${tokens(c.usage.output)}`,
     cost(c.usage.cost),
