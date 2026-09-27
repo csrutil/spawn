@@ -53,7 +53,7 @@ test("renders running and finished agents as a tree", () => {
     theme,
   ).render(200, NOW);
   assert.deepEqual(lines, [
-    "● Agents 1 running · 1 failed",
+    "● Spawn Agents 1 running · 1 failed",
     "├─ ✗ 🦊 a · error · ↻2 · 1 tool use · ↑2.6k ↓147 · $0.0012 · 3s · m:high",
     "│   ⎿  429",
     "└─ ⠦ 🦊 b · ↻5 · 5 tool uses · 33.8k token (17%) · 12s · m:high",
@@ -68,7 +68,7 @@ test("queued and hidden rows close the tree", () => {
     () => 2,
     theme,
   ).render(200, NOW);
-  assert.equal(lines[0], "● Agents 9 running · 2 queued");
+  assert.equal(lines[0], "● Spawn Agents 9 running · 2 queued");
   assert.deepEqual(lines.slice(-2), ["├─ 1 earlier (/spawn)", "└─ 2 queued"]);
   assert.ok(lines.at(-3)?.startsWith("│   ⎿  "));
 });

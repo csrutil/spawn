@@ -183,7 +183,9 @@ export class SpawnWidget implements Component {
       .filter(Boolean)
       .join(" · ");
     const dot = theme.fg(running > 0 ? "accent" : "dim", "●");
-    const lines = [`${dot} ${theme.bold("Agents")} ${theme.fg("dim", counts)}`];
+    const lines = [
+      `${dot} ${theme.bold("Spawn Agents")} ${theme.fg("dim", counts)}`,
+    ];
     const tail = [
       hidden > 0 ? `${hidden} earlier (/spawn)` : undefined,
       queued > 0 ? `${queued} queued` : undefined,
