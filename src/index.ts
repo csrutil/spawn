@@ -32,7 +32,7 @@ import {
 } from "./config.ts";
 import { PURE_SLEEP } from "./guard.ts";
 import { resolveModel, userNamedModel } from "./model.ts";
-import { type Completion, Ring, type SubmitResult, slugName } from "./ring.ts";
+import { type Completion, Ring, slugName } from "./ring.ts";
 import {
   formatTranscript,
   readTranscript,
@@ -114,17 +114,13 @@ export default function spawnExtension(pi: ExtensionAPI) {
       ticker = undefined;
     }
     if (!ctxRef?.hasUI) return;
-    if (rows.size === 0 && ring.queued().length === 0) {
+    if (rows.size === 0) {
       ctxRef.ui.setWidget("spawn", undefined);
       tui = undefined;
     } else if (!tui) {
       ctxRef.ui.setWidget("spawn", (t, theme) => {
         tui = t;
-        return new SpawnWidget(
-          () => [...rows.values()],
-          () => ring.queued().length,
-          theme,
-        );
+        return new SpawnWidget(() => [...rows.values()], theme);
       });
     } else {
       tui.requestRender();
@@ -163,8 +159,6 @@ export default function spawnExtension(pi: ExtensionAPI) {
   // Completions from a previous session's ring are dropped.
   const makeRing = (reserved: string[] = []): Ring => {
     const r: Ring = new Ring({
-      limit: config.maxInFlight,
-      queueLimit: config.maxQueued,
       timeout: config.timeout,
       historySize: 64,
       reserved,
@@ -203,10 +197,6 @@ export default function spawnExtension(pi: ExtensionAPI) {
       };
       return agent.run(text, signal);
     };
-
-  const eagain = (r: Extract<SubmitResult, { ok: false }>) =>
-    `EAGAIN: ${r.inFlight}/${r.limit} subagents in flight and ${r.queued} queued. ` +
-    "Wait for a completion or cancel one with spawn_cancel.";
 
   pi.on("session_start", async (_event, ctx) => {
     ctxRef = ctx;
@@ -250,7 +240,7 @@ export default function spawnExtension(pi: ExtensionAPI) {
       block: true,
       terminate: true,
       reason:
-        `${ring.size} subagent(s) running or queued. Do not sleep to wait for them: ` +
+        `${ring.size} subagent(s) running. Do not sleep to wait for them: ` +
         "each summary arrives as a new message and starts a new turn. " +
         "End your turn now with a short note of what is running.",
     };
@@ -277,8 +267,7 @@ export default function spawnExtension(pi: ExtensionAPI) {
     label: "Spawn",
     description:
       "Start a background subagent for a self-contained task. Returns its name immediately; does not wait. " +
-      "When the subagent finishes, its summary arrives later as a separate message. " +
-      `At most ${config.maxInFlight} subagents run at once; more wait in a queue of ${config.maxQueued}. Beyond that the call fails with EAGAIN.`,
+      "When the subagent finishes, its summary arrives later as a separate message.",
     promptSnippet: "Start a non-blocking background subagent",
     promptGuidelines: [
       "Use spawn for independent tasks that can run in parallel; keep working instead of waiting.",
@@ -428,20 +417,17 @@ export default function spawnExtension(pi: ExtensionAPI) {
         { name: params.name, task: params.task },
         runner(create, params.task),
       );
-      if (!result.ok) return fail(eagain(result));
       describe(result.id);
 
-      const state = result.queued ? "queued" : "spawned";
       return {
         content: [
           {
             type: "text",
-            text: `${state} ${result.id} (${modelLabel}).${note} Do not wait or sleep: continue other work or end your turn. The summary arrives as a new message.`,
+            text: `spawned ${result.id} (${modelLabel}).${note} Do not wait or sleep: continue other work or end your turn. The summary arrives as a new message.`,
           },
         ],
         details: {
           id: result.id,
-          queued: result.queued,
           ...meta.get(result.id),
         },
       };
@@ -462,17 +448,13 @@ export default function spawnExtension(pi: ExtensionAPI) {
             id?: string;
             emoji?: string;
             model?: string;
-            queued?: boolean;
             error?: string;
           }
         | undefined;
       if (d?.error) return new Text(theme.fg("error", d.error), 0, 0);
       if (!d?.id) return new Text("", 0, 0);
       return new Text(
-        theme.fg(
-          "dim",
-          `→ ${d.emoji ?? ""} ${d.id} ${d.queued ? "queued" : "running"} on ${d.model}`,
-        ),
+        theme.fg("dim", `→ ${d.emoji ?? ""} ${d.id} running on ${d.model}`),
         0,
         0,
       );
@@ -502,11 +484,6 @@ export default function spawnExtension(pi: ExtensionAPI) {
         sub.steer(params.message);
         return reply(`sent to running subagent ${params.id}.`);
       }
-      if (ring.isActive(params.id))
-        return reply(
-          `${params.id} is still queued; send once it starts.`,
-          true,
-        );
       if (!sub)
         return reply(
           `no subagent "${params.id}" in memory. Only the last ${MAX_RETAINED} finished subagents of this session accept follow-ups; spawn a new one instead.`,
@@ -518,9 +495,8 @@ export default function spawnExtension(pi: ExtensionAPI) {
         runner(() => sub, params.message),
       );
       if (!r) return reply(`cannot resume ${params.id}.`, true);
-      if (!r.ok) return reply(eagain(r), true);
       return reply(
-        `${r.queued ? "queued" : "resumed"} ${params.id}. Do not wait or sleep; the reply arrives as a new message.`,
+        `resumed ${params.id}. Do not wait or sleep; the reply arrives as a new message.`,
       );
     },
   });
@@ -528,7 +504,7 @@ export default function spawnExtension(pi: ExtensionAPI) {
   pi.registerTool({
     name: "spawn_status",
     label: "Spawn Status",
-    description: "List running and queued subagents and recent completions.",
+    description: "List running subagents and recent completions.",
     parameters: Type.Object({}),
     async execute() {
       return {
@@ -549,7 +525,7 @@ export default function spawnExtension(pi: ExtensionAPI) {
   pi.registerTool({
     name: "spawn_cancel",
     label: "Spawn Cancel",
-    description: 'Abort a running or queued subagent by id, or "all".',
+    description: 'Abort a running subagent by id, or "all".',
     parameters: Type.Object({
       id: Type.String({
         description: 'Subagent id (e.g. "find-auth-code") or "all"',
@@ -564,7 +540,7 @@ export default function spawnExtension(pi: ExtensionAPI) {
             text:
               n > 0
                 ? `cancelled ${n} subagent(s)`
-                : `no running or queued subagent "${params.id}"`,
+                : `no running subagent "${params.id}"`,
           },
         ],
         details: { cancelled: n },
@@ -575,14 +551,10 @@ export default function spawnExtension(pi: ExtensionAPI) {
   const statusText = (): string => {
     const now = Date.now();
     const running = ring.running();
-    const queued = ring.queued();
     const done = ring.completed().slice(-10);
-    const lines = [
-      `running ${running.length}/${config.maxInFlight}, queued ${queued.length}/${config.maxQueued}`,
-    ];
+    const lines = [`running ${running.length}`];
     for (const t of running)
       lines.push(`  ${t.id} ${seconds(now - t.startedAt)}: ${oneLine(t.task)}`);
-    for (const t of queued) lines.push(`  ${t.id} queued: ${oneLine(t.task)}`);
     if (done.length > 0) lines.push("recent completions:");
     for (const c of done)
       lines.push(`  ${c.id} ${c.status} ${seconds(c.endedAt - c.startedAt)}`);

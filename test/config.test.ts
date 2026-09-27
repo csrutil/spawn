@@ -32,7 +32,6 @@ test("tools: subset is kept; unknown names warn and fall back to all", () => {
 test("missing file gives defaults", () => {
   const { config, warnings } = loadConfig("/nonexistent/spawn.json");
   assert.equal(config.model, null);
-  assert.equal(config.maxInFlight, 64);
   assert.deepEqual(warnings, []);
 });
 

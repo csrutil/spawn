@@ -47,11 +47,7 @@ test("renders running and finished agents as a tree", () => {
     }),
     row("b"),
   ];
-  const lines = new SpawnWidget(
-    () => rows,
-    () => 0,
-    theme,
-  ).render(200, NOW);
+  const lines = new SpawnWidget(() => rows, theme).render(200, NOW);
   assert.deepEqual(lines, [
     "● Spawn Agents 1 running · 1 failed",
     "├─ ✗ 🦊 a · error · 2 turns · 1 tool use · ↑2.6k ↓147 · $0.0012 · 3s · m:high",
@@ -61,16 +57,12 @@ test("renders running and finished agents as a tree", () => {
   ]);
 });
 
-test("queued and hidden rows close the tree", () => {
+test("hidden rows close the tree", () => {
   const rows = Array.from({ length: 9 }, (_, i) => row(`r${i}`));
-  const lines = new SpawnWidget(
-    () => rows,
-    () => 2,
-    theme,
-  ).render(200, NOW);
-  assert.equal(lines[0], "● Spawn Agents 9 running · 2 queued");
-  assert.deepEqual(lines.slice(-2), ["├─ 1 earlier (/spawn)", "└─ 2 queued"]);
-  assert.ok(lines.at(-3)?.startsWith("│   ⎿  "));
+  const lines = new SpawnWidget(() => rows, theme).render(200, NOW);
+  assert.equal(lines[0], "● Spawn Agents 9 running");
+  assert.equal(lines.at(-1), "└─ 1 earlier (/spawn)");
+  assert.ok(lines.at(-2)?.startsWith("│   ⎿  "));
 });
 
 test("metadata starts in one column across names of different length", () => {
@@ -90,11 +82,7 @@ test("metadata starts in one column across names of different length", () => {
     }),
     row("x"),
   ];
-  const lines = new SpawnWidget(
-    () => rows,
-    () => 0,
-    theme,
-  ).render(200, NOW);
+  const lines = new SpawnWidget(() => rows, theme).render(200, NOW);
   const heads = lines.filter((l) => /^[├└]─ /.test(l));
   const columns = heads.map((l) => visibleWidth(l.slice(0, l.indexOf("· "))));
   assert.equal(heads.length, 3);

@@ -3,8 +3,6 @@ import { join } from "node:path";
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 
-export const MAX_IN_FLIGHT = 64;
-
 export const TOOL_NAMES = [
   "read",
   "bash",
@@ -27,10 +25,6 @@ const THINKING_LEVELS: ThinkingLevel[] = [
 ];
 
 export interface SpawnConfig {
-  /** Max subagents in flight. Capped at 64. */
-  maxInFlight: number;
-  /** Max subagents waiting for a slot. 0 makes spawn fail with EAGAIN when full. */
-  maxQueued: number;
   /** "provider/id" or "id", optional ":level". null uses the main model. SPAWN_MODEL overrides. */
   model: string | null;
   /** null uses the main session's current thinking level. */
@@ -45,8 +39,6 @@ export interface SpawnConfig {
 }
 
 export const DEFAULT_CONFIG: SpawnConfig = {
-  maxInFlight: MAX_IN_FLIGHT,
-  maxQueued: 64,
   model: null,
   thinkingLevel: null,
   tools: [...TOOL_NAMES],
@@ -98,24 +90,6 @@ function loadFile(path: string): {
   const r = raw as Record<string, unknown>;
   const bad = (key: string) => warnings.push(`${path}: invalid "${key}"`);
 
-  if (r.maxInFlight !== undefined) {
-    if (
-      typeof r.maxInFlight === "number" &&
-      Number.isInteger(r.maxInFlight) &&
-      r.maxInFlight >= 1
-    ) {
-      config.maxInFlight = Math.min(r.maxInFlight, MAX_IN_FLIGHT);
-    } else bad("maxInFlight");
-  }
-  if (r.maxQueued !== undefined) {
-    if (
-      typeof r.maxQueued === "number" &&
-      Number.isInteger(r.maxQueued) &&
-      r.maxQueued >= 0
-    )
-      config.maxQueued = r.maxQueued;
-    else bad("maxQueued");
-  }
   if (r.model !== undefined) {
     if (
       r.model === null ||

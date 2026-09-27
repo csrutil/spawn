@@ -158,19 +158,16 @@ function renderRow(
 /** Live tree of subagents shown above the editor. */
 export class SpawnWidget implements Component {
   private readonly rows: () => Row[];
-  private readonly queued: () => number;
   private readonly theme: Theme;
 
-  constructor(rows: () => Row[], queued: () => number, theme: Theme) {
+  constructor(rows: () => Row[], theme: Theme) {
     this.rows = rows;
-    this.queued = queued;
     this.theme = theme;
   }
 
   render(width: number, now = Date.now()): string[] {
     const theme = this.theme;
     const rows = this.rows();
-    const queued = this.queued();
     const shown = rows.slice(-MAX_ROWS);
     const hidden = rows.length - shown.length;
     const running = rows.filter((r) => !r.completion).length;
@@ -180,7 +177,6 @@ export class SpawnWidget implements Component {
     const done = rows.length - running - failed;
     const counts = [
       `${running} running`,
-      queued > 0 ? `${queued} queued` : undefined,
       done > 0 ? `${done} done` : undefined,
       failed > 0 ? `${failed} failed` : undefined,
     ]
@@ -190,10 +186,9 @@ export class SpawnWidget implements Component {
     const lines = [
       `${dot} ${theme.bold("Spawn Agents")} ${theme.fg("dim", counts)}`,
     ];
-    const tail = [
-      hidden > 0 ? `${hidden} earlier (/spawn)` : undefined,
-      queued > 0 ? `${queued} queued` : undefined,
-    ].filter((t) => t !== undefined);
+    const tail = [hidden > 0 ? `${hidden} earlier (/spawn)` : undefined].filter(
+      (t) => t !== undefined,
+    );
     const nameWidth = Math.max(0, ...shown.map((r) => visibleWidth(label(r))));
     shown.forEach((row, i) => {
       const last = i === shown.length - 1 && tail.length === 0;
