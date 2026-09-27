@@ -9,10 +9,11 @@ import {
 
 const usage = { input: 1, output: 2, cost: 0 };
 
-function makeRing(limit: number, timeout = 0) {
+function makeRing(limit: number, timeout = 0, queueLimit = 0) {
   const done: Completion[] = [];
   const ring = new Ring({
     limit,
+    queueLimit,
     timeout,
     historySize: 3,
     onComplete: (c) => done.push(c),
@@ -37,7 +38,7 @@ test("submit does not block and completion is delivered", async () => {
   const { ring, done } = makeRing(2);
   const c = controllable();
   const r = ring.submit({ name: "Count Lines", task: "t" }, c.run);
-  assert.deepEqual(r, { ok: true, id: "count-lines" });
+  assert.deepEqual(r, { ok: true, id: "count-lines", queued: false });
   assert.equal(ring.size, 1);
   assert.equal(done.length, 0);
   c.release({ summary: "sum", turns: 2, usage });
@@ -54,7 +55,13 @@ test("EAGAIN when in-flight limit is reached, slot frees on completion", async (
   ring.submit({ name: "a", task: "a" }, a.run);
   ring.submit({ name: "b", task: "b" }, b.run);
   const r = ring.submit({ name: "c", task: "c" }, controllable().run);
-  assert.deepEqual(r, { ok: false, error: "EAGAIN", inFlight: 2, limit: 2 });
+  assert.deepEqual(r, {
+    ok: false,
+    error: "EAGAIN",
+    inFlight: 2,
+    limit: 2,
+    queued: 0,
+  });
   a.release({ summary: "", turns: 1, usage });
   await tick();
   assert.equal(
@@ -147,6 +154,92 @@ test("names are slugged, derived from task when empty, and unique", async () => 
   assert.deepEqual(ids, ["scan", "scan-2", "scan-3"]);
   await tick();
   const again = ring.submit({ name: "scan", task: "4" }, controllable().run);
-  assert.deepEqual(again, { ok: true, id: "scan-4" });
+  assert.deepEqual(again, { ok: true, id: "scan-4", queued: false });
+  ring.cancel("all");
+});
+
+test("queued tasks start in order as slots free", async () => {
+  const { ring, done } = makeRing(1, 0, 2);
+  const a = controllable();
+  const b = controllable();
+  const started: string[] = [];
+  const track =
+    (c: ReturnType<typeof controllable>) => (s: AbortSignal, id: string) => {
+      started.push(id);
+      return c.run(s);
+    };
+  ring.submit({ name: "a", task: "a" }, track(a));
+  const rb = ring.submit({ name: "b", task: "b" }, track(b));
+  const rc = ring.submit({ name: "c", task: "c" }, track(controllable()));
+  assert.deepEqual(rb, { ok: true, id: "b", queued: true });
+  assert.equal(rc.ok, true);
+  assert.equal(ring.size, 3);
+  assert.deepEqual(
+    ring.queued().map((q) => q.id),
+    ["b", "c"],
+  );
+  const full = ring.submit({ name: "d", task: "d" }, controllable().run);
+  assert.equal(full.ok, false);
+  assert.deepEqual(started, ["a"]);
+  a.release({ summary: "", turns: 1, usage });
+  await tick();
+  assert.deepEqual(started, ["a", "b"]);
+  assert.equal(done[0].id, "a");
+  ring.cancel("all");
+});
+
+test("cancelling a queued task completes it as aborted without running", async () => {
+  const { ring, done } = makeRing(1, 0, 4);
+  let ran = false;
+  ring.submit({ name: "a", task: "a" }, controllable().run);
+  ring.submit({ name: "b", task: "b" }, async () => {
+    ran = true;
+    return { summary: "", turns: 0, usage };
+  });
+  assert.equal(ring.cancel("b"), 1);
+  await tick();
+  assert.equal(ran, false);
+  assert.deepEqual(
+    done.map((d) => [d.id, d.status]),
+    [["b", "aborted"]],
+  );
+  ring.cancel("all");
+});
+
+test("resume reuses a finished id and rejects active or unknown ids", async () => {
+  const { ring, done } = makeRing(2);
+  const a = controllable();
+  ring.submit({ name: "a", task: "t" }, a.run);
+  assert.equal(ring.resume("a", "more", controllable().run), undefined);
+  assert.equal(ring.resume("nope", "more", controllable().run), undefined);
+  a.release({ summary: "", turns: 1, usage });
+  await tick();
+  const r = ring.resume("a", "more", async () => ({
+    summary: "again",
+    turns: 1,
+    usage,
+  }));
+  assert.deepEqual(r, { ok: true, id: "a", queued: false });
+  await tick();
+  assert.deepEqual(
+    done.map((d) => [d.id, d.summary]),
+    [
+      ["a", ""],
+      ["a", "again"],
+    ],
+  );
+});
+
+test("reserved ids are not reused", () => {
+  const ring = new Ring({
+    limit: 2,
+    queueLimit: 0,
+    timeout: 0,
+    historySize: 2,
+    reserved: ["scan"],
+    onComplete: () => {},
+  });
+  const r = ring.submit({ name: "scan", task: "x" }, controllable().run);
+  assert.deepEqual(r, { ok: true, id: "scan-2", queued: false });
   ring.cancel("all");
 });

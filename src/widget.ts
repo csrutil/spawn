@@ -33,15 +33,27 @@ export interface Row {
   model: string;
   startedAt: number;
   turns: number;
+  toolUses: number;
+  /** Tokens in the subagent's context as of its last response. */
+  contextTokens: number;
+  /** 0 when unknown. */
+  contextWindow: number;
   activity: string;
   completion?: Completion;
 }
 
 const SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+/** Animation step. The widget re-renders at this interval while agents run. */
+export const FRAME_MS = 150;
 const MAX_ROWS = 8;
 
 function seconds(ms: number): string {
   return `${Math.round(ms / 1000)}s`;
+}
+
+export function cost(usd: number): string | undefined {
+  if (usd <= 0) return undefined;
+  return `$${usd.toFixed(usd < 0.1 ? 4 : 2)}`;
 }
 
 export function tokens(n: number): string {
@@ -55,12 +67,13 @@ function rgb(ansi: string): [number, number, number] | undefined {
 
 /**
  * Shimmer: a bright band sweeps left to right over muted text, one step per
- * 100 ms. Blends RGB in truecolor themes; steps through theme colors otherwise.
+ * frame. Blends RGB in truecolor themes; steps through theme colors otherwise.
  */
 function shimmer(text: string, theme: Theme, now: number): string {
   const chars = [...text];
   const band = 3;
-  const center = (Math.floor(now / 100) % (chars.length + band * 4)) - band * 2;
+  const center =
+    (Math.floor(now / FRAME_MS) % (chars.length + band * 4)) - band * 2;
   const base = rgb(theme.getFgAnsi("muted"));
   const peak = rgb(theme.getFgAnsi("text"));
   return chars
@@ -75,26 +88,45 @@ function shimmer(text: string, theme: Theme, now: number): string {
     .join("");
 }
 
+function toolUses(n: number): string {
+  return `${n} tool ${n === 1 ? "use" : "uses"}`;
+}
+
+function context(row: Row): string {
+  const pct =
+    row.contextWindow > 0
+      ? ` (${Math.round((row.contextTokens / row.contextWindow) * 100)}%)`
+      : "";
+  return `${tokens(row.contextTokens)} token${pct}`;
+}
+
+function label(row: Row): string {
+  return `${row.emoji} ${row.id}`;
+}
+
+/** Head line and optional detail line for one subagent. */
 function renderRow(
   row: Row,
   theme: Theme,
   now: number,
   nameWidth: number,
-): string {
-  const padding = " ".repeat(
-    nameWidth - visibleWidth(`${row.emoji} ${row.id}`) + 1,
-  );
+): [head: string, detail?: string] {
+  // Pads names so metadata starts in one column across rows.
+  const pad = " ".repeat(nameWidth - visibleWidth(label(row)) + 1);
   const c = row.completion;
   if (!c) {
-    const name = `${row.emoji} ${shimmer(row.id, theme, now)}`;
-    const frame = SPINNER[Math.floor(now / 100) % SPINNER.length];
+    const frame = SPINNER[Math.floor(now / FRAME_MS) % SPINNER.length];
     const meta = [
+      `↻${row.turns}`,
+      toolUses(row.toolUses),
+      context(row),
       seconds(now - row.startedAt),
-      `turn ${row.turns}`,
       row.model,
-      row.activity,
     ].join(" · ");
-    return `${theme.fg("accent", frame)} ${name}${padding}${theme.fg("dim", meta)}`;
+    return [
+      `${theme.fg("accent", frame)} ${row.emoji} ${shimmer(row.id, theme, now)}${pad}${theme.fg("dim", `· ${meta}`)}`,
+      theme.fg("dim", row.activity),
+    ];
   }
   const icon =
     c.status === "ok"
@@ -102,45 +134,74 @@ function renderRow(
       : c.status === "error"
         ? theme.fg("error", "✗")
         : theme.fg("warning", "■");
-  const name = `${row.emoji} ${theme.fg("muted", row.id)}`;
   const meta = [
     c.status === "ok" ? undefined : c.status,
+    `↻${c.turns}`,
+    toolUses(row.toolUses),
+    `↑${tokens(c.usage.input)} ↓${tokens(c.usage.output)}`,
+    cost(c.usage.cost),
     seconds(c.endedAt - c.startedAt),
-    `${c.turns} turns`,
-    `${row.model} ↑${tokens(c.usage.input)} ↓${tokens(c.usage.output)}`,
-    c.error,
+    row.model,
   ]
     .filter(Boolean)
     .join(" · ");
-  return `${icon} ${name}${padding}${theme.fg("dim", meta)}`;
+  return [
+    `${icon} ${row.emoji} ${theme.fg("muted", row.id)}${pad}${theme.fg("dim", `· ${meta}`)}`,
+    c.error ? theme.fg("error", c.error) : undefined,
+  ];
 }
 
-/** Live list of subagents shown above the editor. */
+/** Live tree of subagents shown above the editor. */
 export class SpawnWidget implements Component {
   private readonly rows: () => Row[];
+  private readonly queued: () => number;
   private readonly theme: Theme;
 
-  constructor(rows: () => Row[], theme: Theme) {
+  constructor(rows: () => Row[], queued: () => number, theme: Theme) {
     this.rows = rows;
+    this.queued = queued;
     this.theme = theme;
   }
 
-  render(width: number): string[] {
+  render(width: number, now = Date.now()): string[] {
+    const theme = this.theme;
     const rows = this.rows();
-    const now = Date.now();
+    const queued = this.queued();
     const shown = rows.slice(-MAX_ROWS);
-    const nameWidth = Math.max(
-      0,
-      ...shown.map((r) => visibleWidth(`${r.emoji} ${r.id}`)),
-    );
-    const lines = shown.map((r) =>
-      truncateToWidth(renderRow(r, this.theme, now, nameWidth), width),
-    );
-    if (rows.length > MAX_ROWS)
-      lines.unshift(
-        this.theme.fg("dim", `… ${rows.length - MAX_ROWS} more (/spawn)`),
-      );
-    return lines;
+    const hidden = rows.length - shown.length;
+    const running = rows.filter((r) => !r.completion).length;
+    const failed = rows.filter(
+      (r) => r.completion && r.completion.status !== "ok",
+    ).length;
+    const done = rows.length - running - failed;
+    const counts = [
+      `${running} running`,
+      queued > 0 ? `${queued} queued` : undefined,
+      done > 0 ? `${done} done` : undefined,
+      failed > 0 ? `${failed} failed` : undefined,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    const dot = theme.fg(running > 0 ? "accent" : "dim", "●");
+    const lines = [`${dot} ${theme.bold("Agents")} ${theme.fg("dim", counts)}`];
+    const tail = [
+      hidden > 0 ? `${hidden} earlier (/spawn)` : undefined,
+      queued > 0 ? `${queued} queued` : undefined,
+    ].filter((t) => t !== undefined);
+    const nameWidth = Math.max(0, ...shown.map((r) => visibleWidth(label(r))));
+    shown.forEach((row, i) => {
+      const last = i === shown.length - 1 && tail.length === 0;
+      const branch = theme.fg("dim", last ? "└─ " : "├─ ");
+      const stem = theme.fg("dim", last ? "   " : "│  ");
+      const [head, detail] = renderRow(row, theme, now, nameWidth);
+      lines.push(branch + head);
+      if (detail) lines.push(`${stem}${theme.fg("dim", " ⎿  ")}${detail}`);
+    });
+    tail.forEach((t, i) => {
+      const branch = i === tail.length - 1 ? "└─" : "├─";
+      lines.push(theme.fg("dim", `${branch} ${t}`));
+    });
+    return lines.map((l) => truncateToWidth(l, width));
   }
 
   invalidate(): void {}
