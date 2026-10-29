@@ -39,12 +39,12 @@ A widget above the editor shows subagents as a tree:
 ● Agents 1 running · 1 failed
 ├─ ✗ 🦊 usd-cny-rate · error · 2 turns · 1 tool use · ↑2.6k ↓147 · $0.0012 · 3s · glm-5.3-flash:high
 │   ⎿  429 rate limited
-└─ ⠹ 🐙 usd-jpy-rate · 5 turns · 5 tool uses · 33.8k token (17%) · 12s · glm-5.3-flash:high
+└─ ⠹ 🐙 usd-jpy-rate · glm-5.3-flash:high · 33.8k token (17%) · 5 turns · 5 tool uses · 12s
     ⎿  bash curl -s https://open.er-api.com/v6/latest/USD
 ```
 
-Running rows show turns, tool uses, context tokens (and share of the context
-window), elapsed time, model, and the current step. A successful row leaves once
+Running rows show the model, context tokens (and share of the context window),
+turns, tool uses, elapsed time, and the current step. A successful row leaves once
 its summary is posted; failed rows stay until the next user prompt.
 
 ## Transcripts

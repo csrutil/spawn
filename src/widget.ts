@@ -121,11 +121,11 @@ function renderRow(
   if (!c) {
     const frame = SPINNER[Math.floor(now / FRAME_MS) % SPINNER.length];
     const meta = [
+      row.model,
+      context(row),
       turns(row.turns),
       toolUses(row.toolUses),
-      context(row),
       seconds(now - row.startedAt),
-      row.model,
     ].join(" · ");
     return [
       `${theme.fg("accent", frame)} ${row.emoji} ${shimmer(row.id, theme, now)}${pad}${theme.fg("dim", `· ${meta}`)}`,

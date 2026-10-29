@@ -52,7 +52,7 @@ test("renders running and finished agents as a tree", () => {
     "● Agents 1 running · 1 failed",
     "├─ ✗ 🦊 a · error · 2 turns · 1 tool use · ↑2.6k ↓147 · $0.0012 · 3s · m:high",
     "│   ⎿  429",
-    "└─ ⠦ 🦊 b · 5 turns · 5 tool uses · 33.8k token (17%) · 12s · m:high",
+    "└─ ⠦ 🦊 b · m:high · 33.8k token (17%) · 5 turns · 5 tool uses · 12s",
     "    ⎿  bash ls",
   ]);
 });
