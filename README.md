@@ -36,7 +36,7 @@ pi -e ./spawn/src/index.ts
 A widget above the editor shows subagents as a tree:
 
 ```
-● Spawn Agents 1 running · 1 failed
+● Agents 1 running · 1 failed
 ├─ ✗ 🦊 usd-cny-rate · error · 2 turns · 1 tool use · ↑2.6k ↓147 · $0.0012 · 3s · glm-5.3-flash:high
 │   ⎿  429 rate limited
 └─ ⠹ 🐙 usd-jpy-rate · 5 turns · 5 tool uses · 33.8k token (17%) · 12s · glm-5.3-flash:high

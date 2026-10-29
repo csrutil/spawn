@@ -49,7 +49,7 @@ test("renders running and finished agents as a tree", () => {
   ];
   const lines = new SpawnWidget(() => rows, theme).render(200, NOW);
   assert.deepEqual(lines, [
-    "● Spawn Agents 1 running · 1 failed",
+    "● Agents 1 running · 1 failed",
     "├─ ✗ 🦊 a · error · 2 turns · 1 tool use · ↑2.6k ↓147 · $0.0012 · 3s · m:high",
     "│   ⎿  429",
     "└─ ⠦ 🦊 b · 5 turns · 5 tool uses · 33.8k token (17%) · 12s · m:high",
@@ -60,7 +60,7 @@ test("renders running and finished agents as a tree", () => {
 test("hidden rows close the tree", () => {
   const rows = Array.from({ length: 9 }, (_, i) => row(`r${i}`));
   const lines = new SpawnWidget(() => rows, theme).render(200, NOW);
-  assert.equal(lines[0], "● Spawn Agents 9 running");
+  assert.equal(lines[0], "● Agents 9 running");
   assert.equal(lines.at(-1), "└─ 1 earlier (/spawn)");
   assert.ok(lines.at(-2)?.startsWith("│   ⎿  "));
 });
